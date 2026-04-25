@@ -1,5 +1,4 @@
 use crate::api::llm::openai::completion::common::OpenAICompletionMessage;
-use crate::tools::common::Tool;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -7,6 +6,8 @@ use serde_json::Value;
 pub struct OpenAICompletionRequest {
     pub model: String,
     pub messages: Vec<OpenAICompletionMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub n: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_completion_tokens: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]

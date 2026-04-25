@@ -11,6 +11,10 @@ use tokio::io::AsyncWriteExt;
 pub struct Write;
 
 impl Write {
+    pub fn new() -> Self {
+        Write {}
+    }
+
     async fn _run(id: String, mut parameters: WriteParameters) -> Result<Message, Error> {
         parameters.path = shellexpand::tilde(parameters.path.as_str()).to_string();
 

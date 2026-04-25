@@ -1,5 +1,6 @@
 use crate::message::tool_call::ToolCallRequestMessage;
 use serde::{Deserialize, Serialize};
+use serde_json::to_string;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Message {
@@ -22,6 +23,17 @@ pub enum MessageType {
 pub enum MessageContents {
     String(String),
     ToolCallRequests(Vec<ToolCallRequestMessage>),
+}
+
+impl Into<String> for MessageContents {
+    fn into(self) -> String {
+        match self {
+            MessageContents::String(string) => string,
+            MessageContents::ToolCallRequests(requests) => {
+                to_string(&requests).expect("serialisation failed")
+            }
+        }
+    }
 }
 
 pub trait IntoMessage {

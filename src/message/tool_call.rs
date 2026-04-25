@@ -1,6 +1,6 @@
+use crate::api::llm::openai::completion::request::OpenAITool;
 use crate::message::message::{Message, MessageContents, MessageType};
-use crate::tools::common::{Tool, ToolParameters};
-use crate::tools::fs;
+use crate::tools::common::Tool;
 use crate::tools::fs::ls::Ls;
 use crate::tools::fs::pwd::Pwd;
 use crate::tools::fs::read::Read;
@@ -50,6 +50,28 @@ impl ToolKind {
             s if s == read => ToolKind::Read,
             s if s == write => ToolKind::Write,
             _ => ToolKind::Unknown,
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            ToolKind::Ls => Ls::get_name(),
+            ToolKind::Pwd => Pwd::get_name(),
+            ToolKind::Read => Read::get_name(),
+            ToolKind::Write => Write::get_name(),
+            ToolKind::Unknown => "unknown".to_string(),
+        }
+    }
+}
+
+impl Into<OpenAITool> for ToolKind {
+    fn into(self) -> OpenAITool {
+        match self {
+            ToolKind::Ls => Ls::new().into(),
+            ToolKind::Pwd => Pwd::new().into(),
+            ToolKind::Read => Read::new().into(),
+            ToolKind::Write => Write::new().into(),
+            ToolKind::Unknown => panic!("unknown should not be listed as an available tool"),
         }
     }
 }

@@ -12,6 +12,10 @@ use tokio::fs::{read_dir, read_link};
 pub struct Ls;
 
 impl Ls {
+    pub fn new() -> Self {
+        Ls {}
+    }
+
     async fn _run(id: String, mut parameters: LsParameters) -> Result<Message, Error> {
         parameters.path = shellexpand::tilde(parameters.path.as_str()).to_string();
 

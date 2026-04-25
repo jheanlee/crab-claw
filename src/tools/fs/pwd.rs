@@ -10,6 +10,10 @@ use std::env;
 pub struct Pwd;
 
 impl Pwd {
+    pub fn new() -> Self {
+        Pwd {}
+    }
+
     async fn _run(id: String, parameters: PwdParameters) -> Result<Message, Error> {
         let pwd = env::current_dir()?;
 
@@ -71,7 +75,7 @@ impl Tool for Pwd {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct PwdParameters;
+pub struct PwdParameters {}
 
 impl ToolParameters for PwdParameters {
     fn from_string(raw_parameters: String) -> Result<Box<Self>, Message> {

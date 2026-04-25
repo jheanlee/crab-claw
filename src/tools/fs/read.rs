@@ -10,6 +10,10 @@ use tokio::fs::read_to_string;
 pub struct Read;
 
 impl Read {
+    pub fn new() -> Self {
+        Read {}
+    }
+
     async fn _run(id: String, mut parameters: ReadParameters) -> Result<Message, Error> {
         parameters.path = shellexpand::tilde(parameters.path.as_str()).to_string();
 

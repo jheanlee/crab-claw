@@ -1,7 +1,6 @@
 use crate::message::message::{IntoMessage, Message, MessageContents, MessageType};
 use crate::message::tool_call::{ToolCallRequestMessage, ToolKind};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, from_str};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -67,10 +66,59 @@ impl IntoMessage for OpenAICompletionMessage {
     }
 }
 
+impl From<Message> for OpenAICompletionMessage {
+    fn from(value: Message) -> Self {
+        match value.r#type {
+            MessageType::System => OpenAICompletionMessage {
+                role: OpenAICompletionMessageRole::System,
+                content: Some(value.contents.into()),
+                tool_calls: None,
+            },
+            MessageType::User => OpenAICompletionMessage {
+                role: OpenAICompletionMessageRole::User,
+                content: Some(value.contents.into()),
+                tool_calls: None,
+            },
+            MessageType::LLM => OpenAICompletionMessage {
+                role: OpenAICompletionMessageRole::Assistant,
+                content: Some(value.contents.into()),
+                tool_calls: None,
+            },
+            MessageType::ToolCallRequest => OpenAICompletionMessage {
+                role: OpenAICompletionMessageRole::Assistant,
+                content: None,
+                tool_calls: Some({
+                    match value.contents {
+                        MessageContents::String(_) => {
+                            panic!("Tool call requests should never be a string")
+                        }
+                        MessageContents::ToolCallRequests(request) => request
+                            .iter()
+                            .map(|call| OpenAICompletionToolCall {
+                                id: call.id.clone(),
+                                r#type: "function".to_string(),
+                                function: OpenAICompletionToolFunctionCall {
+                                    name: call.tool.to_string(),
+                                    arguments: call.parameters.clone(),
+                                },
+                            })
+                            .collect(),
+                    }
+                }),
+            },
+            MessageType::ToolCallResponse => OpenAICompletionMessage {
+                role: OpenAICompletionMessageRole::Tool,
+                content: Some(value.contents.into()),
+                tool_calls: None,
+            },
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct OpenAICompletionToolCall {
     pub id: String,
-    pub r#type: String, // Usually "function"
+    pub r#type: String, // Always "function"
     pub function: OpenAICompletionToolFunctionCall,
 }
 
