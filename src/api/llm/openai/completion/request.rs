@@ -1,4 +1,5 @@
 use crate::api::llm::openai::completion::common::OpenAICompletionMessage;
+use crate::tools::common::Tool;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

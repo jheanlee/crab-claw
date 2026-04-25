@@ -1,5 +1,5 @@
+use crate::llm::llm_provider::LLMProvider;
 use std::net::SocketAddr;
-use crate::api::llm::common::LLMProvider;
 
 pub struct OpenAIProvider {
     pub model: String,
