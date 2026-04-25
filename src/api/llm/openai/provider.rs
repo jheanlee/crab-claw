@@ -9,6 +9,7 @@ use crate::api::llm::openai::completion::response::OpenAICompletionResponse;
 use crate::llm::llm_provider::LLMProvider;
 use crate::message::message::{IntoMessage, Message};
 use crate::message::tool_call::ToolKind;
+use async_trait::async_trait;
 use serde_json::to_string;
 
 pub struct OpenAIProvider {
@@ -27,6 +28,7 @@ impl OpenAIProvider {
     }
 }
 
+#[async_trait]
 impl LLMProvider for OpenAIProvider {
     async fn request(
         &self,

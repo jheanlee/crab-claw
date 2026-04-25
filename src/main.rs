@@ -1,4 +1,5 @@
 mod api;
+mod core;
 mod llm;
 mod message;
 mod tools;
