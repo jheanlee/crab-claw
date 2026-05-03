@@ -1,4 +1,4 @@
-use crate::message::message::{Message, MessageContents, MessageType};
+use crate::conversation_message::message::{Message, MessageContents, MessageType};
 use crate::tools::common::{
     Tool, ToolCallResponse, ToolCallResponseStatus, ToolParameterSchema, ToolParameters,
 };
@@ -14,7 +14,7 @@ impl Pwd {
         Pwd {}
     }
 
-    async fn _run(id: String, parameters: PwdParameters) -> Result<Message, Error> {
+    async fn _run(id: String, _parameters: PwdParameters) -> Result<Message, Error> {
         let pwd = env::current_dir()?;
 
         Ok(Message {
@@ -57,7 +57,26 @@ impl Tool for Pwd {
     }
 
     fn get_descriptions() -> String {
-        String::from("Return the current working directory.")
+        String::from(
+            "## Tool Name: `fs_pwd`
+### Description
+Returns the absolute path of the current working directory for the environment in which the agent is operating.
+
+### Use Cases
+The agent should use this tool when:
+-   **Context Discovery:** It needs to establish where it is within the file system before performing file operations.
+-   **Path Resolution:** It needs to resolve relative paths into absolute paths.
+-   **Verification:** It needs to confirm that a previous directory change (e.g., via a `cd` command) was successful and that it is in the expected location.
+
+### Behavior
+-   **Input:** None (requires an empty parameters object `{}`).
+-   **Output:** A string representing the current absolute path (e.g., `/home/user/project` or `/Users/name/work`).
+
+### Usage Precautions
+-   **Statelessness:** If the agent is running in a distributed or serverless environment, the current working directory might reset between different tool calls or conversation turns. Do not assume the directory remains persistent without verifying the environment's architecture.
+-   **Symbolic Links:** The tool returns the actual current directory. Be aware that if the agent entered a directory via a symbolic link, `fs_pwd` may return the physical path rather than the logical path, depending on how the underlying Rust `std::env::current_dir()` handles the specific filesystem mount.
+-   **Permissions:** While unlikely for the `pwd` action itself, the agent may have permission to be in a directory but lack permission to read its parent, which can occasionally cause issues in path canonicalization."
+        )
     }
 
     fn get_parameter_schema() -> ToolParameterSchema {

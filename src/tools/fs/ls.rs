@@ -1,4 +1,4 @@
-use crate::message::message::{Message, MessageContents, MessageType};
+use crate::conversation_message::message::{Message, MessageContents, MessageType};
 use crate::tools::common::{
     Tool, ToolCallResponse, ToolCallResponseStatus, ToolParameterSchema, ToolParameters,
 };
@@ -69,10 +69,6 @@ impl Ls {
             } else {
                 list.push(LsFileEntry::Simple {
                     path: path.to_str().ok_or(Error::NonUTF8PathName)?.to_string(),
-                    absolute_path: absolute_path
-                        .to_str()
-                        .ok_or(Error::NonUTF8PathName)?
-                        .to_string(),
                     r#type: file_type,
                     is_symlink: symlink_dst.is_some(),
                     symlink_dst,
@@ -120,7 +116,37 @@ impl Tool for Ls {
     }
 
     fn get_descriptions() -> String {
-        String::from("List contents of the specified directory.")
+        String::from(
+            "## Tool Name: `fs_ls`
+
+### Description
+Lists the contents of a specified directory, providing either a basic overview or detailed metadata for each entry found.
+
+### Use Cases
+The agent should use this tool when:
+-   **Navigation:** Exploring the file system hierarchy to find specific files or subdirectories.
+-   **Verification:** Confirming the existence of a file or verifying that a file operation (like creation or deletion) was successful.
+-   **Permission Checks:** Investigating Unix permissions or file sizes to troubleshoot access issues or storage constraints.
+-   **Symlink Resolution:** Identifying if an entry is a symbolic link and determining its target destination.
+
+### Parameters
+-   `path` (string, **required**): The directory path to list. Supports absolute paths, relative paths, and tilde expansion (e.g., `~/Documents`).
+-   `detailed` (boolean, **required**):
+    -   Set to `false` for a lightweight list (name, type, symlink status).
+    -   Set to `true` to include absolute paths, Unix mode permissions, and file size in bytes.
+
+### Behavior
+-   **Unix Integration:** This tool uses Unix-specific extensions. Permissions are returned as a numeric mode (bitmask). **Warning: This tool is not cross-platform compatible and is designed for Unix or Unix-like environments; it may fail or behave unexpectedly on non-Unix systems.**
+-   **Symlinks:** If a file is a symbolic link, the tool explicitly identifies it and attempts to read the link destination.
+-   **Path Resolution:** When listing a relative path, the tool attempts to canonicalize the absolute path for each entry when in `detailed` mode.
+
+### Usage Precautions
+-   **UTF-8 Requirement:** The tool will return an error if it encounters path names that are not valid UTF-8.
+-   **Empty Directories:** An empty directory will return an empty list `[]` with a `Success` status.
+-   **Performance:** Avoid requesting `detailed: true` on directories containing thousands of files unless the metadata is strictly necessary, as canonicalizing every path and fetching metadata incurs additional I/O overhead.
+-   **Hidden Files:** The tool lists all entries returned by the filesystem. Unlike a standard shell `ls`, it does not require a special flag to show \"hidden\" files (those starting with a dot), as it iterates through all directory entries provided by the OS.
+"
+        )
     }
 
     fn get_parameter_schema() -> ToolParameterSchema {
@@ -169,7 +195,6 @@ impl ToolParameters for LsParameters {
 enum LsFileEntry {
     Simple {
         path: String,
-        absolute_path: String,
         r#type: String,
         is_symlink: bool,
         symlink_dst: Option<String>,

@@ -1,5 +1,5 @@
-use crate::message::message::{IntoMessage, Message, MessageContents, MessageType};
-use crate::message::tool_call::{ToolCallRequestMessage, ToolKind};
+use crate::conversation_message::message::{IntoMessage, Message, MessageContents, MessageType};
+use crate::conversation_message::tool_call::{ToolCallRequestMessage, ToolKind};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

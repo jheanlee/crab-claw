@@ -1,4 +1,4 @@
-use crate::message::message::{Message, MessageContents, MessageType};
+use crate::conversation_message::message::{Message, MessageContents, MessageType};
 use crate::tools::common::{
     Tool, ToolCallResponse, ToolCallResponseStatus, ToolParameterSchema, ToolParameters,
 };
@@ -76,7 +76,41 @@ impl Tool for Write {
     }
 
     fn get_descriptions() -> String {
-        String::from("Write data to the specified file.")
+        String::from(
+            "## Tool Name: `fs_write`
+
+### Description
+Writes text data to a specified file, with support for creating new files, overwriting existing ones, or appending to them.
+
+### Use Cases
+The agent should use this tool when:
+-   **File Creation:** Generating new source files, configuration files, or documentation.
+-   **Logging:** Appending status updates or audit trail entries to an existing log file.
+-   **Code Modification:** Overwriting a file with updated logic or refactored code.
+-   **Persistent Storage:** Saving session data or results for later use by the user or the agent.
+
+### Parameters
+-   `path` (string, **required**): The destination file path. Supports absolute paths, relative paths, and tilde expansion (e.g., `~/scripts/test.sh`).
+-   `mode` (string, **required**):
+    -   `\"write\"`: Erases all existing content in the file and writes the new `contents`.
+    -   `\"append\"`: Preserves existing data and adds the new `contents` to the end of the file.
+-   `create` (boolean, **required**):
+    -   Set to `true` to create the file if it does not already exist.
+    -   Set to `false` to ensure writing only occurs if the file is already present (fails if missing).
+-   `contents` (string, **required**): The string data to write to the file.
+
+### Behavior
+-   **Tilde Expansion:** Automatically resolves `~` to the user's home directory.
+-   **Asynchronous Processing:** Uses `tokio::fs` to perform non-blocking file I/O, flushing buffers immediately after writing to ensure data integrity.
+-   **Output:** Returns the total number of bytes successfully written to the disk.
+
+### Usage Precautions
+-   **Destructive Mode:** Use `mode: \"write\"` with extreme caution, as it will **permanently erase** existing file content. Verify the target path using `fs_ls` or `fs_pwd` before overwriting.
+-   **Directory Existence:** The tool will fail if you attempt to create a file in a directory that does not exist. Ensure the parent directory structure is in place before calling `fs_write`.
+-   **Concurrent Access:** Be mindful that other processes or VMs (e.g., your Debian/Ubuntu instances on Proxmox) might be accessing the same files. This tool does not implement mandatory file locking.
+-   **Unix Permissions:** The tool operates under the permissions of the agent's process. It will fail with an error if it lacks write access to the target directory or file.
+-   **Non-Text Data:** This tool is designed for UTF-8 strings. It is **not suitable for binary data** or complex non-text formats."
+        )
     }
 
     fn get_parameter_schema() -> ToolParameterSchema {

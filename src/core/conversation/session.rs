@@ -1,20 +1,22 @@
+use crate::conversation_message::message::{Message, MessageContents, MessageType};
+use crate::conversation_message::tool_call::ToolKind;
 use crate::llm::llm_provider::LLMProvider;
-use crate::message::message::{Message, MessageContents, MessageType};
-use crate::message::tool_call::ToolKind;
 use nanoid::nanoid;
 use std::future::pending;
 use std::sync::Arc;
 use tokio::select;
-use tokio::sync::{RwLock, mpsc, watch};
+use tokio::sync::{RwLock, broadcast, mpsc, watch};
 use tokio::task::{JoinError, JoinHandle};
 use tokio_util::task::JoinMap;
+use tracing::{info, trace, warn};
 
 pub struct ConversationSession {
-    pub provider: Arc<RwLock<Arc<Box<dyn LLMProvider>>>>,
-    pub message_history: Arc<RwLock<Vec<Message>>>,
-    pub tools: Arc<RwLock<Vec<ToolKind>>>,
+    llm_provider: Arc<RwLock<Arc<Box<dyn LLMProvider>>>>,
+    message_history: Arc<RwLock<Vec<Message>>>,
+    tools: Arc<RwLock<Vec<ToolKind>>>,
     pub llm_running_rx: watch::Receiver<bool>,
-    pub message_tx: mpsc::Sender<Message>,
+    pub user_message_tx: mpsc::Sender<Message>,
+    message_tx: broadcast::Sender<Message>,
     conversation_handler: JoinHandle<()>,
 }
 
@@ -28,22 +30,49 @@ impl ConversationSession {
         let message_history = Arc::new(RwLock::new(message_history));
         let tools = Arc::new(RwLock::new(tools));
         let (llm_running_tx, llm_running_rx) = watch::channel(false);
-        let (message_tx, message_rx) = mpsc::channel(64);
+        let (message_tx, _) = broadcast::channel(64);
+        let (user_message_tx, user_message_rx) = mpsc::channel(64);
 
         ConversationSession {
-            provider: provider.clone(),
+            llm_provider: provider.clone(),
             message_history: message_history.clone(),
             tools: tools.clone(),
             llm_running_rx,
-            message_tx,
+            user_message_tx,
+            message_tx: message_tx.clone(),
             conversation_handler: tokio::spawn(Self::handler(
                 provider,
                 message_history,
                 tools,
                 llm_running_tx,
-                message_rx,
+                user_message_rx,
+                message_tx,
             )),
         }
+    }
+
+    pub async fn get_provider(&self) -> Arc<Box<dyn LLMProvider>> {
+        self.llm_provider.read().await.clone()
+    }
+
+    pub async fn set_provider(&mut self, provider: Box<dyn LLMProvider>) {
+        *self.llm_provider.write().await = Arc::new(provider);
+    }
+
+    pub async fn get_message_history(&self) -> Vec<Message> {
+        self.message_history.read().await.clone()
+    }
+
+    pub async fn get_tools(&self) -> Vec<ToolKind> {
+        self.tools.read().await.clone()
+    }
+
+    pub async fn set_tools(&mut self, tools: Vec<ToolKind>) {
+        *self.tools.write().await = tools;
+    }
+
+    pub fn subscribe(&self) -> broadcast::Receiver<Message> {
+        self.message_tx.subscribe()
     }
 
     async fn handler(
@@ -51,7 +80,8 @@ impl ConversationSession {
         message_history: Arc<RwLock<Vec<Message>>>,
         tools: Arc<RwLock<Vec<ToolKind>>>,
         llm_running_tx: watch::Sender<bool>,
-        mut message_rx: mpsc::Receiver<Message>,
+        mut user_message_rx: mpsc::Receiver<Message>,
+        mut message_tx: broadcast::Sender<Message>,
     ) {
         let mut tasks = JoinMap::new();
         let mut llm_call: Option<JoinHandle<Result<Message, crate::llm::error::Error>>> = None;
@@ -67,8 +97,8 @@ impl ConversationSession {
                 }, if llm_call.is_some() => {
                     llm_call = None;
 
-                    if let Some(message) = Self::llm_response_handler(llm_call_res) {
-                        //  TODO: output
+                    if let Some(message) = Self::llm_response_handler(llm_call_res, message_tx.clone()) {
+                        let _ = message_tx.send(message.clone());
                         //  TODO: check reasoning models
                         match message.r#type {
                             MessageType::ToolCallRequest => {
@@ -112,26 +142,27 @@ impl ConversationSession {
                         res
                     }));
                 }
-                Some((_, message)) = tasks.join_next(), if !tasks.is_empty() => {
+                Some((id, message)) = tasks.join_next(), if !tasks.is_empty() => {
                     match message {
                         Ok(message) => {
+                            let _ = message_tx.send(message.clone());
                             message_history.write().await.push(message);
                             message_queued = true;
                             //  TODO: limit tool call count to avoid infinite loops
-                            //  TODO: log, output
+                            trace!("Task {id} finished");
                         }
                         Err(error) => {
-                            //  TODO: log task panicked
+                            warn!("Task {id} panicked: {:?}", error);
                         }
                     }
                 }
-                message = message_rx.recv() => {
+                message = user_message_rx.recv() => {
                     let Some(message) = message else {
                         break;
                     };
 
                     //  TODO: log message
-                    //  TODO: output to client
+                    let _ = message_tx.send(message.clone());
                     message_history.write().await.push(message);
                     message_queued = true;
                 }
@@ -141,27 +172,35 @@ impl ConversationSession {
 
     fn llm_response_handler(
         response: Result<Result<Message, crate::llm::error::Error>, JoinError>,
+        response_tx: broadcast::Sender<Message>,
     ) -> Option<Message> {
         match response {
             Ok(Ok(message)) => Some(message),
-            Ok(Err(error)) => {
-                match error {
-                    crate::llm::error::Error::InvalidChoiceCount => Some(Message {
+            Ok(Err(error)) => match error {
+                crate::llm::error::Error::InvalidChoiceCount => Some(Message {
+                    r#type: MessageType::System,
+                    contents: MessageContents::String(
+                        "invalid choice count received in the response".to_string(),
+                    ),
+                }),
+                error => {
+                    trace!("LLM response failed: {:?}", error);
+                    let _ = response_tx.send(Message {
                         r#type: MessageType::System,
-                        contents: MessageContents::String(
-                            "invalid choice count received in the response".to_string(),
-                        ),
-                    }),
-                    error => {
-                        //  TODO: log error
-                        //  TODO: output error
-                        None
-                    }
+                        contents: MessageContents::String(format!(
+                            "An error has occurred: {:?}",
+                            error
+                        )),
+                    });
+                    None
                 }
-            }
+            },
             Err(error) => {
-                //  TODO: log error
-                //  TODO: output error
+                trace!("LLM task panicked: {:?}", error);
+                let _ = response_tx.send(Message {
+                    r#type: MessageType::System,
+                    contents: MessageContents::String(format!("An error has occurred {:?}", error)),
+                });
                 None
             }
         }

@@ -1,4 +1,4 @@
-use crate::message::message::{Message, MessageContents, MessageType};
+use crate::conversation_message::message::{Message, MessageContents, MessageType};
 use crate::tools::common::{
     Tool, ToolCallResponse, ToolCallResponseStatus, ToolParameterSchema, ToolParameters,
 };
@@ -59,7 +59,32 @@ impl Tool for Read {
 
     fn get_descriptions() -> String {
         String::from(
-            "Read all content of the specified file. The output is in the UTF-8 encoding. Note: May cause the agent to use too much tokens if file size is too large; use with caution.",
+            "## Tool Name: `fs_read`
+
+### Description
+Reads the entire content of a specified file and returns it as a UTF-8 encoded string.
+
+### Use Cases
+The agent should use this tool when:
+-   **Code Review/Analysis:** It needs to examine the source code of a file to provide explanations or refactoring suggestions.
+-   **Configuration Reading:** It needs to extract settings or environment variables from configuration files (e.g., `.env`, `Cargo.toml`, `settings.json`).
+-   **Data Extraction:** It needs to retrieve information from text-based logs, documentation, or data files.
+-   **Modification Prep:** It needs to see the current state of a file before applying edits or overwriting content.
+
+### Parameters
+-   `path` (string, **required**): The path to the file to be read. Supports absolute paths, relative paths, and tilde expansion (e.g., `~/.bashrc`).
+
+### Behavior
+-   **Encoding:** The tool strictly expects and returns **UTF-8** encoded text.
+-   **Path Resolution:** Automatically expands `~` to the user's home directory.
+-   **Asynchronous I/O:** Utilizes non-blocking I/O (via `tokio::fs`) to ensure the agent environment remains responsive during the read operation.
+
+### Usage Precautions
+-   **Token Management:** Reading very large files can consume a significant portion of the agent's context window (token limit). For large files, consider using alternative methods to \"peak\" at the file or process it in chunks if available.
+-   **Binary Files:** **Warning: This tool is not suitable for reading binary files** (e.g., images, compiled executables, or compressed archives). Attempting to read non-UTF-8 data will result in an error or corrupted text.
+-   **Memory Usage:** Because the tool reads the *entire* file into memory as a string, attempting to read multi-gigabyte files may lead to memory exhaustion or tool failure.
+-   **Environment:** While cross-platform at the Rust level, the tool follows **Unix-like path conventions**. On systems like macOS or Debian, ensure the calling agent has the necessary read permissions for the target file.
+-   **Security:** **Do not use this tool to read confidential files, private keys, or secrets (e.g., `.ssh/id_rsa`, `shadow`, or sensitive credential stores) unless explicitly authorized for a specific troubleshooting task.**"
         )
     }
 

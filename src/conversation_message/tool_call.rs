@@ -1,5 +1,5 @@
 use crate::api::llm::openai::completion::request::OpenAITool;
-use crate::message::message::{Message, MessageContents, MessageType};
+use crate::conversation_message::message::{Message, MessageContents, MessageType};
 use crate::tools::common::Tool;
 use crate::tools::fs::ls::Ls;
 use crate::tools::fs::pwd::Pwd;
@@ -15,7 +15,6 @@ pub struct ToolCallRequestMessage {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(untagged)]
 pub enum ToolKind {
     Ls,
     Pwd,

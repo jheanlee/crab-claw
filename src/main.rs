@@ -1,7 +1,11 @@
+use crate::interface::interface_instance::InterfaceInstance;
+
 mod api;
+mod conversation_message;
 mod core;
+mod interface;
 mod llm;
-mod message;
+mod messaging;
 mod tools;
 
 #[tokio::main]

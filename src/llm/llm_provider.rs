@@ -1,6 +1,6 @@
+use crate::conversation_message::message::Message;
+use crate::conversation_message::tool_call::ToolKind;
 use crate::llm::error::Error;
-use crate::message::message::Message;
-use crate::message::tool_call::ToolKind;
 use async_trait::async_trait;
 
 #[async_trait]

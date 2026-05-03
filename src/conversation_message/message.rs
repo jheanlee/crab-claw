@@ -1,4 +1,4 @@
-use crate::message::tool_call::ToolCallRequestMessage;
+use crate::conversation_message::tool_call::ToolCallRequestMessage;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
 
