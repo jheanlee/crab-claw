@@ -8,7 +8,7 @@ use tokio::select;
 use tokio::sync::{RwLock, broadcast, mpsc, watch};
 use tokio::task::{JoinError, JoinHandle};
 use tokio_util::task::JoinMap;
-use tracing::{info, trace, warn};
+use tracing::{debug, trace, warn};
 
 pub struct ConversationSession {
     llm_provider: Arc<RwLock<Arc<Box<dyn LLMProvider>>>>,
@@ -81,7 +81,7 @@ impl ConversationSession {
         tools: Arc<RwLock<Vec<ToolKind>>>,
         llm_running_tx: watch::Sender<bool>,
         mut user_message_rx: mpsc::Receiver<Message>,
-        mut message_tx: broadcast::Sender<Message>,
+        message_tx: broadcast::Sender<Message>,
     ) {
         let mut tasks = JoinMap::new();
         let mut llm_call: Option<JoinHandle<Result<Message, crate::llm::error::Error>>> = None;
@@ -182,15 +182,17 @@ impl ConversationSession {
                     contents: MessageContents::String(
                         "invalid choice count received in the response".to_string(),
                     ),
+                    tool_call_id: None,
                 }),
                 error => {
-                    trace!("LLM response failed: {:?}", error);
+                    debug!("LLM response failed: {:?}", error);
                     let _ = response_tx.send(Message {
                         r#type: MessageType::System,
                         contents: MessageContents::String(format!(
                             "An error has occurred: {:?}",
                             error
                         )),
+                        tool_call_id: None,
                     });
                     None
                 }
@@ -200,6 +202,7 @@ impl ConversationSession {
                 let _ = response_tx.send(Message {
                     r#type: MessageType::System,
                     contents: MessageContents::String(format!("An error has occurred {:?}", error)),
+                    tool_call_id: None,
                 });
                 None
             }

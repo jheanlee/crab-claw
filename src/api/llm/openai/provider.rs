@@ -11,6 +11,7 @@ use crate::conversation_message::tool_call::ToolKind;
 use crate::llm::llm_provider::LLMProvider;
 use async_trait::async_trait;
 use serde_json::to_string;
+use tracing::{debug, instrument};
 
 pub struct OpenAIProvider {
     pub model: String,
@@ -30,6 +31,7 @@ impl OpenAIProvider {
 
 #[async_trait]
 impl LLMProvider for OpenAIProvider {
+    #[instrument(skip_all, fields(openai_provider = self.api_base))]
     async fn request(
         &self,
         message_history: Vec<Message>,
@@ -52,10 +54,11 @@ impl LLMProvider for OpenAIProvider {
 
         let client = reqwest::Client::new();
         let res = client
-            .post("http://localhost:4000/v1/chat/completions")
+            .post(self.api_base.to_string())
             .body(to_string(&request).expect("serialisation failed"))
             .send()
             .await?;
+        debug!("OpenAI LLM request sent");
 
         let res_bytes = res.bytes().await?;
         match serde_json::from_slice::<OpenAICompletionResponse>(&res_bytes) {
@@ -66,6 +69,7 @@ impl LLMProvider for OpenAIProvider {
                 Ok(OpenAICompletionMessage {
                     role: OpenAICompletionMessageRole::Assistant,
                     content: response.choices[0].message.content.clone(),
+                    tool_call_id: None,
                     tool_calls: response.choices[0].message.tool_calls.clone(),
                 }
                 .into_message())

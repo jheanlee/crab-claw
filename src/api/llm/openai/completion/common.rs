@@ -18,6 +18,8 @@ pub struct OpenAICompletionMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<OpenAICompletionToolCall>>,
 }
 
@@ -27,10 +29,12 @@ impl IntoMessage for OpenAICompletionMessage {
             OpenAICompletionMessageRole::System => Message {
                 r#type: MessageType::System,
                 contents: MessageContents::String(self.content.unwrap_or(String::new())),
+                tool_call_id: None,
             },
             OpenAICompletionMessageRole::User => Message {
                 r#type: MessageType::User,
                 contents: MessageContents::String(self.content.unwrap_or(String::new())),
+                tool_call_id: None,
             },
             OpenAICompletionMessageRole::Assistant => {
                 if self.tool_calls.is_some() {
@@ -47,17 +51,20 @@ impl IntoMessage for OpenAICompletionMessage {
                                 })
                                 .collect()
                         }),
+                        tool_call_id: None,
                     }
                 } else {
                     Message {
                         r#type: MessageType::LLM,
                         contents: MessageContents::String(self.content.unwrap_or(String::new())),
+                        tool_call_id: None,
                     }
                 }
             }
             OpenAICompletionMessageRole::Tool => Message {
                 r#type: MessageType::ToolCallResponse,
                 contents: MessageContents::String(self.content.unwrap_or(String::new())),
+                tool_call_id: None,
             },
             OpenAICompletionMessageRole::Function => {
                 unimplemented!()
@@ -72,21 +79,25 @@ impl From<Message> for OpenAICompletionMessage {
             MessageType::System => OpenAICompletionMessage {
                 role: OpenAICompletionMessageRole::System,
                 content: Some(value.contents.into()),
+                tool_call_id: value.tool_call_id,
                 tool_calls: None,
             },
             MessageType::User => OpenAICompletionMessage {
                 role: OpenAICompletionMessageRole::User,
                 content: Some(value.contents.into()),
+                tool_call_id: value.tool_call_id,
                 tool_calls: None,
             },
             MessageType::LLM => OpenAICompletionMessage {
                 role: OpenAICompletionMessageRole::Assistant,
                 content: Some(value.contents.into()),
+                tool_call_id: value.tool_call_id,
                 tool_calls: None,
             },
             MessageType::ToolCallRequest => OpenAICompletionMessage {
                 role: OpenAICompletionMessageRole::Assistant,
                 content: None,
+                tool_call_id: value.tool_call_id,
                 tool_calls: Some({
                     match value.contents {
                         MessageContents::String(_) => {
@@ -109,6 +120,7 @@ impl From<Message> for OpenAICompletionMessage {
             MessageType::ToolCallResponse => OpenAICompletionMessage {
                 role: OpenAICompletionMessageRole::Tool,
                 content: Some(value.contents.into()),
+                tool_call_id: value.tool_call_id,
                 tool_calls: None,
             },
         }

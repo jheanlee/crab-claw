@@ -3,19 +3,18 @@ use crate::tools::common::{
     Tool, ToolCallResponse, ToolCallResponseStatus, ToolParameterSchema, ToolParameters,
 };
 use crate::tools::error::Error;
+use chrono::Local;
 use serde::{Deserialize, Serialize};
-use serde_json::{from_str, json, to_string, to_value};
-use std::env;
+use serde_json::{from_str, json, to_string};
 
-pub struct Pwd;
+pub struct CurrentTime {}
 
-impl Pwd {
+impl CurrentTime {
     pub fn new() -> Self {
-        Pwd {}
+        CurrentTime {}
     }
-
-    async fn _run(id: String, _parameters: PwdParameters) -> Result<Message, Error> {
-        let pwd = env::current_dir()?;
+    async fn _run(id: String, _parameters: CurrentTimeParameters) -> Result<Message, Error> {
+        let time = Local::now();
 
         Ok(Message {
             r#type: MessageType::ToolCallResponse,
@@ -23,19 +22,21 @@ impl Pwd {
                 id: id.clone(),
                 name: Self::get_name(),
                 status: ToolCallResponseStatus::Success,
-                content: to_value(pwd)?,
+                content: json!({
+                    "local_time": time.to_rfc3339(),
+                    "utc_time": time.to_utc().to_rfc3339()
+                }),
             })?),
             tool_call_id: Some(id),
         })
     }
 }
 
-impl Tool for Pwd {
+impl Tool for CurrentTime {
     async fn run(id: String, parameters: String) -> Message {
-        match PwdParameters::from_string(parameters) {
+        match CurrentTimeParameters::from_string(parameters) {
             Ok(parameters) => {
                 let res = Self::_run(id.clone(), *parameters).await;
-
                 res.unwrap_or_else(|error| Message {
                     r#type: MessageType::ToolCallResponse,
                     contents: MessageContents::String(
@@ -55,29 +56,28 @@ impl Tool for Pwd {
     }
 
     fn get_name() -> String {
-        String::from("fs_pwd")
+        String::from("env_current_time")
     }
 
     fn get_descriptions() -> String {
         String::from(
-            "## Tool Name: `fs_pwd`
+            "## Tool Name: `env_current_time`
 ### Description
-Returns the absolute path of the current working directory for the environment in which the agent is operating.
+Returns the current local and UTC timestamps of the environment where the agent is operating.
 
 ### Use Cases
 The agent should use this tool when:
--   **Context Discovery:** It needs to establish where it is within the file system before performing file operations.
--   **Path Resolution:** It needs to resolve relative paths into absolute paths.
--   **Verification:** It needs to confirm that a previous directory change (e.g., via a `cd` command) was successful and that it is in the expected location.
+-   **Temporal Awareness:** It needs to understand the current date or time to make scheduling, logging, or context-dependent decisions.
+-   **Time Calculations:** It needs to compute durations, deadlines, or historical differences relative to the present moment.
+-   **Data Synchronization:** It needs to timestamp file creation, API requests, or database records accurately.
 
 ### Behavior
 -   **Input:** None (requires an empty parameters object `{}`).
--   **Output:** A string representing the current absolute path (e.g., `/home/user/project` or `/Users/name/work`).
+-   **Output:** A JSON object containing the current ISO 8601 / RFC 3339 formatted strings for both `local_time` and `utc_time`.
 
 ### Usage Precautions
--   **Statelessness:** If the agent is running in a distributed or serverless environment, the current working directory might reset between different tool calls or conversation turns. Do not assume the directory remains persistent without verifying the environment's architecture.
--   **Symbolic Links:** The tool returns the actual current directory. Be aware that if the agent entered a directory via a symbolic link, `fs_pwd` may return the physical path rather than the logical path, depending on how the underlying Rust `std::env::current_dir()` handles the specific filesystem mount.
--   **Permissions:** While unlikely for the `pwd` action itself, the agent may have permission to be in a directory but lack permission to read its parent, which can occasionally cause issues in path canonicalization."
+-   **Time Zone Discrepancies:** The `local_time` field reflects the system clock configuration of the environment where the tool executes, which might differ from the user's local timezone. Always inspect the offset provided in the timestamp string.
+-   **Drift and Synchronization:** In serverless or distributed setups, minor clock drift might occur between different execution environments. Relying on sub-second precision for sequence synchronization across systems is discouraged."
         )
     }
 
@@ -96,9 +96,9 @@ The agent should use this tool when:
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct PwdParameters {}
+pub struct CurrentTimeParameters {}
 
-impl ToolParameters for PwdParameters {
+impl ToolParameters for CurrentTimeParameters {
     fn from_string(raw_parameters: String) -> Result<Box<Self>, Message> {
         let Ok(parameters) = from_str(raw_parameters.as_str()) else {
             return Err(Message {

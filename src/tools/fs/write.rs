@@ -1,8 +1,10 @@
+use crate::FS_CONFIG;
 use crate::conversation_message::message::{Message, MessageContents, MessageType};
 use crate::tools::common::{
     Tool, ToolCallResponse, ToolCallResponseStatus, ToolParameterSchema, ToolParameters,
 };
 use crate::tools::error::Error;
+use crate::tools::fs::common::FsUtils;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, json, to_string};
 use tokio::fs::OpenOptions;
@@ -17,6 +19,15 @@ impl Write {
 
     async fn _run(id: String, mut parameters: WriteParameters) -> Result<Message, Error> {
         parameters.path = shellexpand::tilde(parameters.path.as_str()).to_string();
+
+        if !FS_CONFIG
+            .write_whitelist
+            .read()
+            .await
+            .is_match(FsUtils::get_absolute_path(parameters.path.as_str())?)
+        {
+            Err(Error::WhitelistViolation)?
+        }
 
         let mut open_options = OpenOptions::new();
         open_options.create(parameters.create);
@@ -37,13 +48,14 @@ impl Write {
         Ok(Message {
             r#type: MessageType::ToolCallResponse,
             contents: MessageContents::String(to_string(&ToolCallResponse {
-                id,
+                id: id.clone(),
                 name: Self::get_name(),
                 status: ToolCallResponseStatus::Success,
                 content: json!({
                     "bytes_written": parameters.contents.as_bytes().len()
                 }),
             })?),
+            tool_call_id: Some(id),
         })
     }
 }
@@ -58,13 +70,14 @@ impl Tool for Write {
                     r#type: MessageType::ToolCallResponse,
                     contents: MessageContents::String(
                         to_string(&ToolCallResponse {
-                            id,
+                            id: id.clone(),
                             name: Self::get_name(),
                             status: ToolCallResponseStatus::Error,
                             content: error.to_string().into(),
                         })
                         .expect("json error"),
                     ),
+                    tool_call_id: Some(id),
                 })
             }
             Err(error_message) => error_message,
@@ -168,8 +181,9 @@ impl ToolParameters for WriteParameters {
     fn from_string(raw_parameters: String) -> Result<Box<Self>, Message> {
         let Ok(parameters) = from_str(raw_parameters.as_str()) else {
             return Err(Message {
-                r#type: MessageType::ToolCallResponse,
+                r#type: MessageType::System,
                 contents: MessageContents::String("invalid parameter format".to_string()),
+                tool_call_id: None,
             });
         };
         Ok(parameters)

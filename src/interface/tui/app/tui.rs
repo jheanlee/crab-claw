@@ -4,7 +4,7 @@ use ratatui::widgets::{Widget, Wrap};
 use ratatui::{
     Terminal,
     layout::{Constraint, Layout},
-    style::{Style, Stylize},
+    style::Style,
     widgets::{Block, Paragraph},
 };
 use std::io::Stdout;

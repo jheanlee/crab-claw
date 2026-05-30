@@ -6,6 +6,7 @@ pub enum Error {
     IoError(tokio::io::Error),
     JsonError(serde_json::Error),
     NonUTF8PathName,
+    WhitelistViolation,
 }
 
 impl std::fmt::Display for Error {
@@ -15,6 +16,7 @@ impl std::fmt::Display for Error {
             Self::IoError(error) => write!(f, "IoError: {error}"),
             Self::JsonError(error) => write!(f, "JsonError: {error}"),
             Self::NonUTF8PathName => write!(f, "NonUTF8PathName"),
+            Self::WhitelistViolation => write!(f, "Action denied (whitelist)"),
         }
     }
 }

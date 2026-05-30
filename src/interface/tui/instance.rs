@@ -33,6 +33,7 @@ impl TUIInstance {
                         .send(Message {
                             r#type: MessageType::User,
                             contents: MessageContents::String(input_val.clone()),
+                            tool_call_id: None,
                         })
                         .await
                         .map_err(|_| Error::SendError)?;
@@ -67,7 +68,7 @@ impl InterfaceInstance for TUIInstance {
     async fn run(&mut self) -> Result<(), Error> {
         crossterm::terminal::enable_raw_mode()?;
         let backend = CrosstermBackend::new(std::io::stdout());
-        let mut terminal = Terminal::with_options(
+        let terminal = Terminal::with_options(
             backend,
             TerminalOptions {
                 viewport: Viewport::Inline(3), // Height of your floating input

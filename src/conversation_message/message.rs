@@ -6,6 +6,8 @@ use serde_json::to_string;
 pub struct Message {
     pub r#type: MessageType,
     pub contents: MessageContents,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
